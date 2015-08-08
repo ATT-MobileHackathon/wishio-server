@@ -68,16 +68,16 @@ def search_by_image():
 
     text = requests.get(url_3, headers=HEADERS).text
     d = pq(text)
-    macys_ids = []
+    products = []
     for data in d.find('.rg_meta'):
         macys_image_url = json.loads(data.text)['ou']
 
         p = re.compile('/(\d+)[^/]+$')
         m = p.search(macys_image_url)
         if m:
-            macys_ids.append(m.group(1))
+            products.append({'macys_id': m.group(1), 'image': macys_image_url})
 
-    return jsonify(macys_ids=macys_ids)
+    return jsonify(products=products)
 
 
 @app.route('/pins', methods=['GET'])
