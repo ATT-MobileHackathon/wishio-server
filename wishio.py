@@ -31,12 +31,20 @@ def get_all_funds():
 
 @app.route('/funds/add', methods=['POST'])
 def add_new_fund():
-    pass
+    get_db().execute('INSERT INTO Fund (fundee_id, product_id, total_funders, currently_funded) '
+                     'VALUES (?, ?, 0, 0)',
+                     (request.form['user_id'], request.form['product_id']))
+    get_db().commit()
+    return ''
 
 
 @app.route('/funds/<id>/contribute', methods=['POST'])
 def contribute_to_fund(id):
-    pass
+    get_db().execute('INSERT INTO Transaction_Fund (fund_id, funder_id, contribution) '
+                     'VALUES (?, ?, ?)',
+                     (id, request.form['user_id'], request.form['contribution']))
+    get_db().commit()
+    return ''
 
 
 app.config.update(dict(
