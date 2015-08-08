@@ -1,4 +1,4 @@
-import os, requests, json, urllib.parse, re, time, feedparser
+import os, requests, json, urllib.parse, re, time, feedparser, random
 from sqlite3 import dbapi2 as sqlite3
 from flask import Flask, request, session, g, jsonify, current_app
 from pyquery import PyQuery as pq
@@ -13,6 +13,26 @@ HEADERS = {
 def index():
     print(get_macys_info(77589)) #testing
     return "Hello world"
+
+@app.route('/register', methods=['POST'])
+def init_wishlist():
+    pinterest_login = request.form['pinterest'] 
+    results = filter_pin_results(get_pin_images(pinterest_login))    
+    return str(results)
+    
+def get_pin_images(user):
+    time.sleep(max(0, current_app.last_get_pin_images_time + 1 - time.time()))
+    current_app.last_get_pin_images_time = time.time()
+
+    d = feedparser.parse('https://www.pinterest.com/' + user+ '/feed.rss')
+    r = re.compile('http[^"]+\.jpg')
+    results = [{'title': entry['title'], 'image': r.search(entry['summary']).group(0)} for entry in d['entries']]
+
+    return results
+
+def filter_pin_results(arr): 
+    random.shuffle(arr)
+    return arr[:3]
 
 @app.route('/funds/retrieve', methods=['GET'])
 def get_all_funds():
@@ -78,20 +98,6 @@ def search_by_image():
             products.append({'macys_id': m.group(1), 'image': macys_image_url})
 
     return jsonify(products=products)
-
-
-@app.route('/pins', methods=['GET'])
-def get_pin_images():
-    time.sleep(max(0, current_app.last_get_pin_images_time + 1 - time.time()))
-    current_app.last_get_pin_images_time = time.time()
-
-    user = request.args.get('user')
-    d = feedparser.parse('https://www.pinterest.com/' + user+ '/feed.rss')
-    r = re.compile('http[^"]+\.jpg')
-    results = [{'title': entry['title'], 'image': r.search(entry['summary']).group(0)} for entry in d['entries']]
-
-    return jsonify(results=results)
-
 
 ######################## MACY'S API FUNCTIONS ########################
 
