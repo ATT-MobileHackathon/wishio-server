@@ -35,8 +35,8 @@ def get_all_funds():
 
 @app.route('/funds/add', methods=['POST'])
 def add_new_fund():
-    get_db().execute('INSERT INTO Fund (fundee_id, product_id, total_funders, currently_funded) '
-                     'VALUES (?, ?, 0, 0)',
+    get_db().execute('INSERT INTO Fund (fundee_id, product_id) '
+                     'VALUES (?, ?)',
                      (request.form['user_id'], request.form['product_id']))
     get_db().commit()
     return ''
