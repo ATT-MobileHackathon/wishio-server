@@ -10,7 +10,7 @@ def index():
     return "Hello world"
 
 
-@app.route('/funds')
+@app.route('/funds/retrieve', methods=['GET'])
 def get_all_funds():
     cur = get_db().execute('SELECT Fund.*, Products.*, '
                            'Users.name AS `user.name`, '
@@ -27,6 +27,16 @@ def get_all_funds():
                'currently_funded': row['currently_funded'],
                'total_funders': row['total_funders']} for row in cur.fetchall()]
     return jsonify(funds=result)
+
+
+@app.route('/funds/add', methods=['POST'])
+def add_new_fund():
+    pass
+
+
+@app.route('/funds/<id>/contribute', methods=['POST'])
+def contribute_to_fund(id):
+    pass
 
 
 app.config.update(dict(
