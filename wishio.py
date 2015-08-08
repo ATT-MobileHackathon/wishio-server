@@ -3,12 +3,10 @@ from sqlite3 import dbapi2 as sqlite3
 from flask import Flask, request, session, g, jsonify
 app = Flask(__name__)
 
-DATABASE = 'database.db' #path to db
 
 @app.route('/')
 def index():
     return "Hello world"
-
 
 @app.route('/funds/retrieve', methods=['GET'])
 def get_all_funds():
@@ -46,6 +44,9 @@ def contribute_to_fund(id):
     get_db().commit()
     return ''
 
+
+######################## DB SETUP ########################
+DATABASE = 'database.db' #path to db
 
 app.config.update(dict(
     DATABASE=os.path.join(app.root_path, 'wishio.db'),
@@ -107,6 +108,9 @@ def init_db():
         db.cursor().executescript(f.read())
     db.commit()
 
+"""
+Function: call from command terminal to initialize database
+"""
 @app.cli.command('initdb')
 def initdb_command():
     """Initializes the database."""
