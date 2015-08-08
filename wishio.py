@@ -14,11 +14,22 @@ def index():
     print(get_macys_info(77589)) #testing
     return "Hello world"
 
+######################## ONBOARDING FUNCTIONS ########################
+
+
 @app.route('/register', methods=['POST'])
 def init_wishlist():
     pinterest_login = request.form['pinterest'] 
-    results = filter_pin_results(get_pin_images(pinterest_login))    
-    return str(results)
+    relevant_pins = filter_pin_results(get_pin_images(pinterest_login))    
+
+        
+    product_ids = []
+    for pin in relevant_pins: 
+        image_search_ids = search_by_image(pin['image'])
+        product_ids.append(image_search_ids)
+    
+    ## @ZACH add additional initialization here
+    return str(product_ids)
     
 def get_pin_images(user):
     time.sleep(max(0, current_app.last_get_pin_images_time + 1 - time.time()))
@@ -33,6 +44,29 @@ def get_pin_images(user):
 def filter_pin_results(arr): 
     random.shuffle(arr)
     return arr[:3]
+
+def search_by_image(image_url):
+    time.sleep(max(0, current_app.last_search_by_image_time + 1 - time.time()))
+    current_app.last_search_by_image_time = time.time()
+
+    url_1 = 'http://images.google.com/searchbyimage?image_url=' + urllib.parse.quote(image_url)
+    url_2 = requests.get(url_1, allow_redirects=False, headers=HEADERS).headers['location']
+    url_3 = url_2 + '&q=site:macys.com'
+
+    text = requests.get(url_3, headers=HEADERS).text
+    d = pq(text)
+    products = []
+    for data in d.find('.rg_meta'):
+        macys_image_url = json.loads(data.text)['ou']
+
+        p = re.compile('/(\d+)[^/]+$')
+        m = p.search(macys_image_url)
+        if m:
+            products.append({'macys_id': m.group(1), 'image': macys_image_url})
+
+    return products
+
+######################## BUSINESS LOGIC FUNCTIONS ########################
 
 @app.route('/funds/retrieve', methods=['GET'])
 def get_all_funds():
@@ -73,31 +107,6 @@ def contribute_to_fund(id):
 with app.app_context():
     current_app.last_search_by_image_time = 0
     current_app.last_get_pin_images_time = 0
-
-
-@app.route('/search', methods=['GET'])
-def search_by_image():
-    time.sleep(max(0, current_app.last_search_by_image_time + 1 - time.time()))
-    current_app.last_search_by_image_time = time.time()
-
-    image_url = request.args.get('image_url')
-
-    url_1 = 'http://images.google.com/searchbyimage?image_url=' + urllib.parse.quote(image_url)
-    url_2 = requests.get(url_1, allow_redirects=False, headers=HEADERS).headers['location']
-    url_3 = url_2 + '&q=site:macys.com'
-
-    text = requests.get(url_3, headers=HEADERS).text
-    d = pq(text)
-    products = []
-    for data in d.find('.rg_meta'):
-        macys_image_url = json.loads(data.text)['ou']
-
-        p = re.compile('/(\d+)[^/]+$')
-        m = p.search(macys_image_url)
-        if m:
-            products.append({'macys_id': m.group(1), 'image': macys_image_url})
-
-    return jsonify(products=products)
 
 ######################## MACY'S API FUNCTIONS ########################
 
