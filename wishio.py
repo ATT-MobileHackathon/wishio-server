@@ -89,8 +89,8 @@ def get_all_funds():
 
 @app.route('/funds/add', methods=['POST'])
 def add_new_fund():
-    get_db().execute('INSERT INTO Fund (fundee_id, product_id, total_funders, currently_funded) '
-                     'VALUES (?, ?, 0, 0)',
+    get_db().execute('INSERT INTO Fund (fundee_id, product_id) '
+                     'VALUES (?, ?)',
                      (request.form['user_id'], request.form['product_id']))
     get_db().commit()
     return ''
@@ -124,32 +124,47 @@ def get_macys_info(id):
         j = r.json()
         print('Making GET request... /'+r.url)
         
-        name = j['product'][0]['summary']['name']
-        customerrating = j['product'][0]['summary']['customerrating']
-        photo_url = j['product'][0]['image'][0]['imageurl']
-        onsale = j['product'][0]['price']['onsale']
-        if onsale == True: 
-            price = j['product'][0]['price']['sale']['value']
-        else: 
-            price = j['product'][0]['price']['regular']['value']
-            
-        # conver to cents
-        price *= 100
-        price = int(price)
-
-        result = {
-            'name' : name, 
-            'customerrating' : customerrating, 
-            'photo_url' : photo_url,
-            'onsale' : onsale,
-            'price' : price
-        }
-        return result
+        return convert_product_to_db(j['product'][0])
 
     except requests.exceptions.RequestException as e:
         print(e)
         sys.exit(1)     
-    
+
+
+def convert_product_to_db(product_json):
+    name = product_json['summary']['name']
+    customerrating = product_json['summary']['customerrating']
+    photo_url = product_json['image'][0]['imageurl']
+    onsale = product_json['price']['onsale']
+    if onsale == True:
+        price = product_json['price']['sale']['value']
+    else:
+        price = product_json['price']['regular']['value']
+
+    # conver to cents
+    price *= 100
+    price = int(price)
+
+    result = {
+        'name' : name,
+        'customerrating' : customerrating,
+        'photo_url' : photo_url,
+        'onsale' : onsale,
+        'price' : price
+    }
+    return result
+
+
+def sort_arrays_by_macys_review(id_arrays):
+    all_ids = [str(id) for id_array in id_arrays for id in id_array]
+    headers = {'Accept':'application/json', 'X-Macys-Webservice-Client-Id':'atthack2015'}
+    url = 'https://api.macys.com/v3/catalog/product/' + ",".join(all_ids)
+    j = requests.get(url, headers=headers).json()
+    id_to_product = {int(product['id']): convert_product_to_db(product) for product in j['product']}
+    product_arrays = [[id_to_product[id] for id in id_array] for id_array in id_arrays]
+    sorted_product_arrays = [sorted(product_array, key=lambda x: x['customerrating'], reverse=True) for product_array in product_arrays]
+    return sorted_product_arrays
+
 
 ######################## DB SETUP & FUNCTIONS ########################
 DATABASE = 'database.db' #path to db
@@ -224,4 +239,4 @@ def initdb_command():
     print('Initialized the database.')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)
