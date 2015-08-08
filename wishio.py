@@ -1,10 +1,13 @@
-import os, requests, json, urllib.parse, re, time
+import os, requests, json, urllib.parse, re, time, feedparser
 from sqlite3 import dbapi2 as sqlite3
 from flask import Flask, request, session, g, jsonify, current_app
 from pyquery import PyQuery as pq
 
 app = Flask(__name__)
 
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/46.0.2476.0 Safari/537.36'
+}
 
 @app.route('/')
 def index():
@@ -49,22 +52,21 @@ def contribute_to_fund(id):
 
 with app.app_context():
     current_app.last_search_by_image_time = 0
+    current_app.last_get_pin_images_time = 0
+
 
 @app.route('/search', methods=['GET'])
 def search_by_image():
     time.sleep(max(0, current_app.last_search_by_image_time + 1 - time.time()))
     current_app.last_search_by_image_time = time.time()
 
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/46.0.2476.0 Safari/537.36'
-    }
     image_url = request.args.get('image_url')
 
     url_1 = 'http://images.google.com/searchbyimage?image_url=' + urllib.parse.quote(image_url)
-    url_2 = requests.get(url_1, allow_redirects=False, headers=headers).headers['location']
+    url_2 = requests.get(url_1, allow_redirects=False, headers=HEADERS).headers['location']
     url_3 = url_2 + '&q=site:macys.com'
 
-    text = requests.get(url_3, headers=headers).text
+    text = requests.get(url_3, headers=HEADERS).text
     d = pq(text)
     macys_ids = []
     for data in d.find('.rg_meta'):
@@ -76,6 +78,19 @@ def search_by_image():
             macys_ids.append(m.group(1))
 
     return jsonify(macys_ids=macys_ids)
+
+
+@app.route('/pins', methods=['GET'])
+def get_pin_images():
+    time.sleep(max(0, current_app.last_get_pin_images_time + 1 - time.time()))
+    current_app.last_get_pin_images_time = time.time()
+
+    user = request.args.get('user')
+    d = feedparser.parse('https://www.pinterest.com/' + user+ '/feed.rss')
+    r = re.compile('http[^"]+\.jpg')
+    results = [{'title': entry['title'], 'image': r.search(entry['summary']).group(0)} for entry in d['entries']]
+
+    return jsonify(results=results)
 
 
 ######################## MACY'S API FUNCTIONS ########################
