@@ -1,4 +1,4 @@
-import os
+import os, requests, json
 from sqlite3 import dbapi2 as sqlite3
 from flask import Flask, request, session, g, jsonify
 app = Flask(__name__)
@@ -6,6 +6,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
+    print(get_macys_info(77589)) #testing
     return "Hello world"
 
 @app.route('/funds/retrieve', methods=['GET'])
@@ -21,7 +22,7 @@ def get_all_funds():
                            'LEFT JOIN Transaction_Fund ON Fund.idfund = Transaction_Fund.fund_id '
                            'GROUP BY Fund.idfund')
     result = [{'user': {'name': row['user.name'], 'image': row['user.photo_url']},
-               'item': {'name': row['name'], 'price': row['price'], 'image': row['photo_url']},
+               'item': {'name': row['macy_id'], 'price': row['price'], 'image': row['photo_url']},
                'currently_funded': row['currently_funded'],
                'total_funders': row['total_funders']} for row in cur.fetchall()]
     return jsonify(funds=result)
@@ -44,8 +45,50 @@ def contribute_to_fund(id):
     get_db().commit()
     return ''
 
+######################## MACY'S API FUNCTIONS ########################
 
-######################## DB SETUP ########################
+def get_macys_info(id): 
+    """ 
+    Given the product id (according to Macy's catalog), add that item to db 
+    Makes a request to the Macy's API to get product specs, and returns object 
+    with information necessary to populate db columns
+    """
+    try: 
+        headers = {'Accept':'application/json', 'X-Macys-Webservice-Client-Id':'atthack2015'}
+        payload = {'imagequality':'90'}
+        url = 'https://api.macys.com/v3/catalog/product/' + str(id)
+        r = requests.get(url, params=payload, headers=headers)
+        j = r.json()
+        print('Making GET request... /'+r.url)
+        
+        name = j['product'][0]['summary']['name']
+        customerrating = j['product'][0]['summary']['customerrating']
+        photo_url = j['product'][0]['image'][0]['imageurl']
+        onsale = j['product'][0]['price']['onsale']
+        if onsale == True: 
+            price = j['product'][0]['price']['sale']['value']
+        else: 
+            price = j['product'][0]['price']['regular']['value']
+            
+        # conver to cents
+        price *= 100
+        price = int(price)
+
+        result = {
+            'name' : name, 
+            'customerrating' : customerrating, 
+            'photo_url' : photo_url,
+            'onsale' : onsale,
+            'price' : price
+        }
+        return result
+
+    except requests.exceptions.RequestException as e:
+        print(e)
+        sys.exit(1)     
+    
+
+######################## DB SETUP & FUNCTIONS ########################
 DATABASE = 'database.db' #path to db
 
 app.config.update(dict(

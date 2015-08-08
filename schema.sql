@@ -10,8 +10,10 @@ CREATE TABLE Products (
     idproducts INTEGER PRIMARY KEY,
     macy_id TEXT NOT NULL,
     name TEXT NOT NULL,
+    customerrating INTEGER NOT NULL, 
     photo_url TEXT NOT NULL,
-    price INTEGER NOT NULL
+    price INTEGER NOT NULL, 
+    onsale BOOLEAN NOT NULL,
 );
 
 /* represents the overall funding of a user's product item */
@@ -36,12 +38,14 @@ CREATE TABLE Transaction_Fund (
 INSERT INTO Users (idusers, name, photo_url)
 VALUES (1, 'Test User', 'https://www.gravatar.com/avatar/55502f40dc8b7c769880b10874abc9d0.jpg');
 
-INSERT INTO Products (idproducts, macy_id, name, photo_url, price)
+INSERT INTO Products (idproducts, macy_id, name, customerrating, photo_url, price, onsale)
 VALUES (1,
         '649718',
         'A|X Armani Exchange Watch, Men''s Black Ion Plated Stainless Steel Bracelet 46mm AX2104',
+        4.5,
         'http://slimages.macys.com/is/image/MCY/products/8/optimized/1106168_fpx.tif?bgc=255,255,255&wid=100&qlt=90&layer=comp&op_sharpen=0&resMode=bicub&op_usm=0.7,1.0,0.5,0&fmt=jpeg',
-        18000);
+        18000, 
+        1);
 
 INSERT INTO Fund (idfund, fundee_id, product_id)
 VALUES (1, 1, 1);
