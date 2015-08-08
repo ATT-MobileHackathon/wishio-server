@@ -1,6 +1,6 @@
 # Installation
 ### Python
-    pip install requirements.txt 
+    pip install -r requirements.txt 
     
 ### sqlite 
 Initialize sqlite database according to 'schema.sql'.
@@ -12,4 +12,4 @@ Initialize sqlite database according to 'schema.sql'.
     python app.py
     
 ### sqlite shell 
-    sqlite3 
+    sqlite3
