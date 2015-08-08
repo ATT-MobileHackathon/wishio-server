@@ -2,6 +2,7 @@ import os, requests, json, urllib.parse, re, time, feedparser, random
 from sqlite3 import dbapi2 as sqlite3
 from flask import Flask, request, session, g, jsonify, current_app
 from pyquery import PyQuery as pq
+from more_itertools import unique_everseen
 
 app = Flask(__name__)
 
@@ -18,20 +19,28 @@ def index():
 
 
 @app.route('/register', methods=['POST'])
-def init_wishlist():
-    pinterest_login = request.form['pinterest'] 
-    relevant_pins = filter_pin_results(get_pin_images(pinterest_login))    
+def register_user():
+    name = request.form['name']
+    pinterest_login = request.form['pinterest']
 
-        
-    product_ids = []
-    for pin in relevant_pins: 
-        image_search_ids = search_by_image(pin['image'])
-        product_ids.append(image_search_ids)
-    
-    ## @ZACH add additional initialization here
-    return str(product_ids)
+    user_id = add_user_to_db(name)
+
+    relevant_pins = filter_pin_results(get_pin_images(pinterest_login))
+    product_id_arrays = [[result['macys_id'] for result in search_by_image(pin['image'])] for pin in relevant_pins]
+    filtered_product_ids = [products[:5] for products in product_id_arrays]
+    product_arrays = sort_arrays_by_macys_review(filtered_product_ids)
+    filtered_products = [products[:3] for products in product_arrays]
+    products_flat_list = [product for product_array in filtered_products for product in product_array]
+
+    for product in products_flat_list:
+        product_id = add_product_to_db(product)
+        add_fund_to_db(product_id, user_id)
+
+    return jsonify(user_id=user_id)
+
     
 def get_pin_images(user):
+    print("get_pin_images: " + user)
     time.sleep(max(0, current_app.last_get_pin_images_time + 1 - time.time()))
     current_app.last_get_pin_images_time = time.time()
 
@@ -46,12 +55,13 @@ def filter_pin_results(arr):
     return arr[:3]
 
 def search_by_image(image_url):
+    print("search_by_image: " + image_url)
     time.sleep(max(0, current_app.last_search_by_image_time + 1 - time.time()))
     current_app.last_search_by_image_time = time.time()
 
     url_1 = 'http://images.google.com/searchbyimage?image_url=' + urllib.parse.quote(image_url)
     url_2 = requests.get(url_1, allow_redirects=False, headers=HEADERS).headers['location']
-    url_3 = url_2 + '&q=site:macys.com'
+    url_3 = url_2 + '&q=site:macys.com/shop/product/'
 
     text = requests.get(url_3, headers=HEADERS).text
     d = pq(text)
@@ -85,15 +95,6 @@ def get_all_funds():
                'currently_funded': row['currently_funded'],
                'total_funders': row['total_funders']} for row in cur.fetchall()]
     return jsonify(funds=result)
-
-
-@app.route('/funds/add', methods=['POST'])
-def add_new_fund():
-    get_db().execute('INSERT INTO Fund (fundee_id, product_id) '
-                     'VALUES (?, ?)',
-                     (request.form['user_id'], request.form['product_id']))
-    get_db().commit()
-    return ''
 
 
 @app.route('/funds/<id>/contribute', methods=['POST'])
@@ -132,11 +133,15 @@ def get_macys_info(id):
 
 
 def convert_product_to_db(product_json):
+    macy_id = product_json['id']
     name = product_json['summary']['name']
-    customerrating = product_json['summary']['customerrating']
+    if 'customerrating' in product_json['summary']:
+        customerrating = product_json['summary']['customerrating']
+    else:
+        customerrating = 0
     photo_url = product_json['image'][0]['imageurl']
     onsale = product_json['price']['onsale']
-    if onsale == True:
+    if onsale:
         price = product_json['price']['sale']['value']
     else:
         price = product_json['price']['regular']['value']
@@ -146,24 +151,69 @@ def convert_product_to_db(product_json):
     price = int(price)
 
     result = {
-        'name' : name,
-        'customerrating' : customerrating,
-        'photo_url' : photo_url,
-        'onsale' : onsale,
-        'price' : price
+        'macy_id': macy_id,
+        'name': name,
+        'customerrating': customerrating,
+        'photo_url': photo_url,
+        'price': price,
+        'onsale': onsale
     }
     return result
 
 
 def sort_arrays_by_macys_review(id_arrays):
-    all_ids = [str(id) for id_array in id_arrays for id in id_array]
+    print("sort_arrays_by_macys_review: " + str(id_arrays))
+    all_ids = list(unique_everseen([str(id) for id_array in id_arrays for id in id_array]))
     headers = {'Accept':'application/json', 'X-Macys-Webservice-Client-Id':'atthack2015'}
-    url = 'https://api.macys.com/v3/catalog/product/' + ",".join(all_ids)
-    j = requests.get(url, headers=headers).json()
-    id_to_product = {int(product['id']): convert_product_to_db(product) for product in j['product']}
-    product_arrays = [[id_to_product[id] for id in id_array] for id_array in id_arrays]
+    id_to_product = {}
+    for id in all_ids:
+        url = 'https://api.macys.com/v3/catalog/product/' + id
+        j = requests.get(url, headers=headers).json()
+        if 'product' in j:
+            print("sort_arrays_by_macys_review: found: " + id)
+            product = j['product'][0]
+            id_to_product[id] = convert_product_to_db(product)
+        else:
+            print("sort_arrays_by_macys_review: not found: " + id)
+    product_arrays = []
+    for id_array in id_arrays:
+        product_array = []
+        for id in id_array:
+            if id in id_to_product:
+                product_array.append(id_to_product[id])
+        product_arrays.append(product_array)
     sorted_product_arrays = [sorted(product_array, key=lambda x: x['customerrating'], reverse=True) for product_array in product_arrays]
     return sorted_product_arrays
+
+
+######################## DB SAVING FUNCTIONS #########################
+
+
+def add_user_to_db(name):
+    cursor = get_db().cursor()
+    cursor.execute('INSERT INTO Users (name, photo_url) '
+                   'VALUES (?, ?)',
+                   (name, 'https://www.gravatar.com/avatar/55502f40dc8b7c769880b10874abc9d0.jpg'))
+    get_db().commit()
+    return cursor.lastrowid
+
+
+def add_product_to_db(product):
+    cursor = get_db().cursor()
+    cursor.execute('INSERT INTO Products (macy_id, name, customerrating, photo_url, price, onsale) '
+                   'VALUES (?, ?, ?, ?, ?, ?)',
+                   (product['macy_id'], product['name'], product['customerrating'], product['photo_url'], product['price'], product['onsale']))
+    get_db().commit()
+    return cursor.lastrowid
+
+
+def add_fund_to_db(product_id, user_id):
+    cursor = get_db().cursor()
+    cursor.execute('INSERT INTO Fund (fundee_id, product_id) '
+                     'VALUES (?, ?)',
+                     (user_id, product_id))
+    get_db().commit()
+    return cursor.lastrowid
 
 
 ######################## DB SETUP & FUNCTIONS ########################
