@@ -21,7 +21,7 @@ def get_all_funds():
                            'LEFT JOIN Transaction_Fund ON Fund.idfund = Transaction_Fund.fund_id '
                            'GROUP BY Fund.idfund')
     result = [{'user': {'name': row['user.name'], 'image': row['user.photo_url']},
-               'item': {'name': row['macy_id'], 'price': row['price'], 'image': row['photo_url']},
+               'item': {'name': row['name'], 'price': row['price'], 'image': row['photo_url']},
                'currently_funded': row['currently_funded'],
                'total_funders': row['total_funders']} for row in cur.fetchall()]
     return jsonify(funds=result)
