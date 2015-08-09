@@ -98,9 +98,10 @@ def get_all_funds():
                            'WHERE Fund.fundee_id != ? GROUP BY Fund.idfund', (user_id,))
     result = [{'user': {'user_id': row['user.id'], 'name': row['user.name'], 'image': row['user.photo_url']},
                'item': {'name': row['name'], 'price': row['price'], 'image': row['photo_url']},
-               'currently_funded': row['currently_funded'],
+               'currently_funded': row['currently_funded'] if row['currently_funded'] is not None else 0,
                'total_funders': row['total_funders'],
                'fund_id': row['idfund']} for row in cur.fetchall()]
+    result = sorted(result, key=lambda x: x['currently_funded'] / x['item']['price'], reverse=True)
     return jsonify(funds=result)
 
 
