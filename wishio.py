@@ -141,15 +141,19 @@ def convert_product_to_db(product_json):
     else:
         customerrating = 0
     photo_url = product_json['image'][0]['imageurl']
-    onsale = product_json['price']['onsale']
-    if onsale and 'sale' in product_json['price']:
-        price = product_json['price']['sale']['value']
-    else:
-        price = 0
-        for priceitem in product_json['price']:
-            if 'value' in priceitem:
-                price = priceitem['value']
-                break
+    try:
+        onsale = product_json['price']['onsale']
+        if onsale and 'sale' in product_json['price']:
+            price = product_json['price']['sale']['value']
+        else:
+            price = 100.5
+            for priceitemkey in product_json['price']:
+                priceitem = product_json['price'][priceitemkey]
+                if isinstance(priceitem, dict) and 'value' in priceitem:
+                    price = priceitem['value']
+                    break
+    except:
+        price = 101.5
 
     # conver to cents
     price *= 100
