@@ -81,8 +81,13 @@ def search_by_image(image_url):
 
 @app.route('/funds/retrieve', methods=['GET'])
 def get_all_funds():
+    if 'user_id' in request.args:
+        user_id = request.args['user_id']
+    else:
+        user_id = 9999999
     cur = get_db().execute('SELECT Fund.*, Products.*, '
                            'Users.name AS `user.name`, '
+                           'Users.idusers AS `user.id`, '
                            'Users.photo_url AS `user.photo_url`, '
                            'SUM(Transaction_Fund.contribution) AS `currently_funded`, '
                            'COUNT(Transaction_Fund.contribution) AS `total_funders` '
@@ -90,8 +95,8 @@ def get_all_funds():
                            'INNER JOIN Users ON Users.idusers = Fund.fundee_id '
                            'INNER JOIN Products ON Products.idproducts = Fund.product_id '
                            'LEFT JOIN Transaction_Fund ON Fund.idfund = Transaction_Fund.fund_id '
-                           'GROUP BY Fund.idfund')
-    result = [{'user': {'name': row['user.name'], 'image': row['user.photo_url']},
+                           'WHERE Fund.fundee_id != ? GROUP BY Fund.idfund', (user_id,))
+    result = [{'user': {'user_id': row['user.id'], 'name': row['user.name'], 'image': row['user.photo_url']},
                'item': {'name': row['macy_id'], 'price': row['price'], 'image': row['photo_url']},
                'currently_funded': row['currently_funded'],
                'total_funders': row['total_funders']} for row in cur.fetchall()]
