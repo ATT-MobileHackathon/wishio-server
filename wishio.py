@@ -97,7 +97,7 @@ def get_all_funds():
                            'LEFT JOIN Transaction_Fund ON Fund.idfund = Transaction_Fund.fund_id '
                            'WHERE Fund.fundee_id != ? GROUP BY Fund.idfund', (user_id,))
     result = [{'user': {'user_id': row['user.id'], 'name': row['user.name'], 'image': row['user.photo_url']},
-               'item': {'name': row['macy_id'], 'price': row['price'], 'image': row['photo_url']},
+               'item': {'name': row['name'], 'price': row['price'], 'image': row['photo_url']},
                'currently_funded': row['currently_funded'],
                'total_funders': row['total_funders'],
                'fund_id': row['idfund']} for row in cur.fetchall()]
@@ -164,6 +164,8 @@ def convert_product_to_db(product_json):
     # conver to cents
     price *= 100
     price = int(price)
+    if price < 100:
+        price = 100
 
     result = {
         'macy_id': macy_id,
