@@ -160,6 +160,7 @@ def convert_product_to_db(product_json):
                     price = priceitem['value']
                     break
     except:
+        onsale = False
         price = 101.5
 
     # conver to cents
@@ -174,7 +175,7 @@ def convert_product_to_db(product_json):
         'customerrating': customerrating,
         'photo_url': photo_url,
         'price': price,
-        'onsale': onsale
+        'onsale': False
     }
     return result
 
