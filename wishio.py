@@ -99,15 +99,16 @@ def get_all_funds():
     result = [{'user': {'user_id': row['user.id'], 'name': row['user.name'], 'image': row['user.photo_url']},
                'item': {'name': row['macy_id'], 'price': row['price'], 'image': row['photo_url']},
                'currently_funded': row['currently_funded'],
-               'total_funders': row['total_funders']} for row in cur.fetchall()]
+               'total_funders': row['total_funders'],
+               'fund_id': row['idfund']} for row in cur.fetchall()]
     return jsonify(funds=result)
 
 
-@app.route('/funds/<id>/contribute', methods=['POST'])
-def contribute_to_fund(id):
+@app.route('/funds/contribute', methods=['POST'])
+def contribute_to_fund():
     get_db().execute('INSERT INTO Transaction_Fund (fund_id, funder_id, contribution) '
                      'VALUES (?, ?, ?)',
-                     (id, request.form['user_id'], request.form['contribution']))
+                     (request.form['fund_id'], request.form['user_id'], request.form['contribution']))
     get_db().commit()
     return ''
 
