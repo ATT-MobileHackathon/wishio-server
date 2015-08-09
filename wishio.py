@@ -68,9 +68,10 @@ def search_by_image(image_url):
     products = []
     for data in d.find('.rg_meta'):
         macys_image_url = json.loads(data.text)['ou']
+        macys_product_url = json.loads(data.text)['ru']
 
-        p = re.compile('/(\d+)[^/]+$')
-        m = p.search(macys_image_url)
+        p = re.compile('[&?]ID=(\d+)')
+        m = p.search(macys_product_url)
         if m:
             products.append({'macys_id': m.group(1), 'image': macys_image_url})
 
@@ -141,10 +142,14 @@ def convert_product_to_db(product_json):
         customerrating = 0
     photo_url = product_json['image'][0]['imageurl']
     onsale = product_json['price']['onsale']
-    if onsale:
+    if onsale and 'sale' in product_json['price']:
         price = product_json['price']['sale']['value']
     else:
-        price = product_json['price']['regular']['value']
+        price = 0
+        for priceitem in product_json['price']:
+            if 'value' in priceitem:
+                price = priceitem['value']
+                break
 
     # conver to cents
     price *= 100
